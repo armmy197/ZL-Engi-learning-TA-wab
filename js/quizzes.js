@@ -151,7 +151,12 @@ else if (quizState.revealed[q.id]) {
     (q.answerText && String(q.answerText).trim()) ||
     (q.answer && String(q.answer).trim()) ||
     "(ไม่มีเฉลย)";
-  msgEl.innerHTML = `📘 เฉลยคำตอบ: <b>${escapeHtml(ans)}</b>`;
+  msgEl.innerHTML = `
+  📘 เฉลยคำตอบ:
+  <b style="font-size:22px; line-height:1.4;">
+    ${escapeHtml(ans)}
+  </b>
+`;
 }
 else if (quizState.msg[q.id]) {
   msgEl.innerHTML = quizState.msg[q.id];
@@ -159,6 +164,7 @@ else if (quizState.msg[q.id]) {
 else {
   msgEl.innerHTML = "";
 }
+
 
   // ----- events -----
   qs("#btnCheck")?.addEventListener("click", ()=>checkAnswer(q, panel, type));
@@ -238,3 +244,4 @@ function checkAnswer(q, panel, type){
 
   renderQuiz(panel);
 }
+
