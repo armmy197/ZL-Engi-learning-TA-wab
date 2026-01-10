@@ -10,9 +10,10 @@ import {
 
 let quizState = {
   index: 0,
-  attempts: {},
-  solved: {},
-  revealed: {},
+  attempts: {},   // { [quizId]: number }
+  solved: {},     // { [quizId]: true }
+  revealed: {},   // { [quizId]: true }
+  msg: {},        // { [quizId]: string }
   items: []
 };
 
@@ -61,6 +62,7 @@ export async function renderQuizzes(){
     attempts: {},
     solved: {},
     revealed: {},
+    msg: {},
     items
   };
 
@@ -74,19 +76,24 @@ function renderQuiz(panel){
   const isRevealed = !!quizState.revealed[q.id];
   const canGoNext = isSolved || isRevealed;
 
-  const type = q.type || "text";
+  const type = q.type || "text"; // รองรับข้อเก่า
 
+  // ----- Answer UI -----
   let answerUI = "";
 
   if(type === "choice"){
-    answerUI = q.choices.map((c, i)=>`
-      <label style="display:flex;gap:8px;margin:6px 0;cursor:pointer">
-        <input type="radio" name="quizChoice" value="${i}"
-          ${isSolved ? "disabled" : ""}>
+    const choices = Array.isArray(q.choices) ? q.choices : [];
+    answerUI = choices.map((c, i)=>`
+      <label style="display:flex;gap:8px;margin:6px 0;cursor:pointer;align-items:flex-start">
+        <input type="radio" name="quizChoice" value="${i}" ${isSolved ? "disabled" : ""}>
         <span>${escapeHtml(c)}</span>
       </label>
     `).join("");
-  }else{
+
+    if(!choices.length){
+      answerUI = `<div class="muted">⚠️ ข้อนี้ยังไม่มีตัวเลือก (choices) กรุณาให้แอดมินแก้ไข</div>`;
+    }
+  } else {
     answerUI = `
       <input id="quizAnswer" class="input"
         placeholder="พิมพ์คำตอบของคุณ"
@@ -96,50 +103,63 @@ function renderQuiz(panel){
 
   panel.innerHTML = `
     <div class="small muted">ข้อ ${quizState.index+1}/${quizState.items.length}</div>
-    <div style="font-size:18px;margin-top:6px">${escapeHtml(q.question)}</div>
 
+    <div style="font-size:18px;margin-top:6px">${escapeHtml(q.question || "")}</div>
     ${q.content ? `<div class="muted" style="margin-top:6px">${escapeHtml(q.content)}</div>` : ""}
 
     ${q.imageUrl ? `
       <img src="${escapeHtml(q.imageUrl)}"
-        style="max-width:100%;margin:10px 0;border-radius:12px">
+        style="max-width:100%;margin:10px 0;border-radius:12px;border:1px solid rgba(255,255,255,.12)">
     ` : ""}
 
     <div style="margin-top:10px">${answerUI}</div>
 
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button id="btnCheck" class="btn btn-primary"
-        ${isSolved ? "disabled" : ""}>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button id="btnCheck" class="btn btn-primary" ${isSolved ? "disabled" : ""}>
         ตรวจคำตอบ
       </button>
 
-      ${(!isSolved && tries >= 2)
-        ? `<button id="btnShowAnswer" class="btn btn-secondary">ดูเฉลย</button>`
+      ${(!isSolved && !isRevealed && tries >= 2)
+        ? `<button id="btnShowAnswer" class="btn btn-secondary">ดูเฉลยคำตอบ</button>`
         : ""}
     </div>
 
     <div id="quizMsg" class="small muted" style="margin-top:8px"></div>
 
-    <div style="display:flex;justify-content:space-between;margin-top:12px">
-      <button id="btnPrev" class="btn btn-ghost"
-        ${quizState.index === 0 ? "disabled" : ""}>
+    <div style="display:flex;justify-content:space-between;margin-top:12px;gap:8px">
+      <button id="btnPrev" class="btn btn-ghost" ${quizState.index === 0 ? "disabled" : ""}>
         ⏮️ กลับ
       </button>
 
-      <button id="btnNext" class="btn btn-ghost"
-        ${canGoNext ? "" : "disabled"}>
+      <button id="btnNext" class="btn btn-ghost" ${canGoNext ? "" : "disabled"}>
         ถัดไป ⏭️
       </button>
     </div>
   `;
 
+  // ----- message -----
+  const msgEl = qs("#quizMsg");
+  if(isSolved){
+    msgEl.textContent = "✅ ตอบถูก";
+    msgEl.style.color = "rgba(241,210,138,.95)";
+  } else if (quizState.msg[q.id]) {
+    // แสดงข้อความล่าสุด เช่น ผิดครั้งที่ 1/2 หรือเฉลย
+    msgEl.innerHTML = quizState.msg[q.id];
+    msgEl.style.color = "rgba(255,255,255,.85)";
+  } else {
+    msgEl.textContent = "";
+  }
+
+  // ----- events -----
   qs("#btnCheck")?.addEventListener("click", ()=>checkAnswer(q, panel, type));
+
   qs("#btnPrev")?.addEventListener("click", ()=>{
     if(quizState.index > 0){
       quizState.index--;
       renderQuiz(panel);
     }
   });
+
   qs("#btnNext")?.addEventListener("click", ()=>{
     if(canGoNext && quizState.index < quizState.items.length-1){
       quizState.index++;
@@ -147,47 +167,64 @@ function renderQuiz(panel){
     }
   });
 
-  if(!isSolved && tries >= 2){
-    qs("#btnShowAnswer")?.addEventListener("click", ()=>{
-      quizState.revealed[q.id] = true;
-      const ans = q.explain || q.answerText || q.answer || "";
-      qs("#quizMsg").innerHTML = `📘 เฉลย: <b>${escapeHtml(ans)}</b>`;
-      renderQuiz(panel);
-    });
-  }
+  qs("#btnShowAnswer")?.addEventListener("click", ()=>{
+    quizState.revealed[q.id] = true;
+    const ans =
+      (q.explain && String(q.explain).trim()) ||
+      (q.answerText && String(q.answerText).trim()) ||
+      (q.answer && String(q.answer).trim()) ||
+      "";
 
-  if(isSolved){
-    qs("#quizMsg").innerHTML = "✅ ถูกต้อง";
-    qs("#quizMsg").style.color = "rgba(241,210,138,.95)";
-  }
+    quizState.msg[q.id] = `📘 เฉลย: <b>${escapeHtml(ans || "(ไม่มีเฉลย)")}</b>`;
+    renderQuiz(panel);
+  });
 }
 
 function checkAnswer(q, panel, type){
-  let correct = false;
-
+  // เตือน: ต้องตอบก่อน
   if(type === "choice"){
-    const sel = document.querySelector("input[name=quizChoice]:checked");
+    const sel = document.querySelector('input[name="quizChoice"]:checked');
     if(!sel){
       toast("กรุณาเลือกคำตอบก่อน");
       return;
     }
-    correct = Number(sel.value) === Number(q.correctIndex);
-  }else{
+  } else {
     const input = qs("#quizAnswer")?.value.trim();
     if(!input){
       toast("กรุณากรอกคำตอบก่อน");
       return;
     }
+  }
+
+  // เพิ่มจำนวนครั้ง
+  quizState.attempts[q.id] = (quizState.attempts[q.id] || 0) + 1;
+  const tries = quizState.attempts[q.id];
+
+  // ตรวจคำตอบ
+  let correct = false;
+
+  if(type === "choice"){
+    const sel = document.querySelector('input[name="quizChoice"]:checked');
+    correct = Number(sel.value) === Number(q.correctIndex);
+  } else {
+    const input = qs("#quizAnswer")?.value.trim();
     const ans = (q.answerText || q.answer || "").trim();
     correct = input === ans;
   }
 
-  quizState.attempts[q.id] = (quizState.attempts[q.id] || 0) + 1;
-
   if(correct){
     quizState.solved[q.id] = true;
-    renderQuiz(panel);
-  }else{
-    renderQuiz(panel);
+    quizState.msg[q.id] = "✅ ตอบถูก";
+  } else {
+    if(tries === 1){
+      quizState.msg[q.id] = "❌ คุณตอบผิด ครั้งที่ 1";
+    } else if(tries === 2){
+      quizState.msg[q.id] = "❌ คุณตอบผิด ครั้งที่ 2 (สามารถกด “ดูเฉลยคำตอบ” ได้)";
+    } else {
+      // เผื่อมีกรณีลองกดซ้ำ
+      quizState.msg[q.id] = `❌ คุณตอบผิด (พยายาม ${tries} ครั้ง)`;
+    }
   }
+
+  renderQuiz(panel);
 }
