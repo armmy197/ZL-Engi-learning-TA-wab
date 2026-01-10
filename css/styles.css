@@ -392,23 +392,6 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
-/* ===== Quiz Font Size ===== */
-.quiz-choice {
-  display: flex;
-  gap: 10px;
-  margin: 8px 0;
-  cursor: pointer;
-  font-size: 20px;        /* ⭐ ขนาดคำตอบ */
-  line-height: 1.5;
-}
 
-.quiz-choice input {
-  transform: scale(1.4); /* ขยาย radio */
-}
-
-.quiz-text-answer {
-  font-size: 20px;        /* ⭐ ขนาดตัวอักษรพิมพ์ตอบ */
-  padding: 14px;
-}
 
 
