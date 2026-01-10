@@ -49,6 +49,11 @@ async function bootstrap(){
       if(route === "admin-docs") await renderAdminDocs();
       if(route === "admin-lessons") await renderAdminLessons();
 
+      if(route === "admin-live"){
+      setActiveRoute("student-live");     // ให้โชว์ view เดิม
+      await renderLivePanel();            // ให้ render ปุ่ม meet
+      return;                             // กันไหลไป logic อื่น
+      }
       // home refresh
       if(route === "home"){
         await renderCourseGrids();
