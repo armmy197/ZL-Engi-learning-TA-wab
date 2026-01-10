@@ -137,18 +137,28 @@ function renderQuiz(panel){
     </div>
   `;
 
-  // ----- message -----
-  const msgEl = qs("#quizMsg");
-  if(isSolved){
-    msgEl.textContent = "✅ ตอบถูก";
-    msgEl.style.color = "rgba(241,210,138,.95)";
-  } else if (quizState.msg[q.id]) {
-    // แสดงข้อความล่าสุด เช่น ผิดครั้งที่ 1/2 หรือเฉลย
-    msgEl.innerHTML = quizState.msg[q.id];
-    msgEl.style.color = "rgba(255,255,255,.85)";
-  } else {
-    msgEl.textContent = "";
-  }
+// ----- message (FIXED) -----
+const msgEl = qs("#quizMsg");
+msgEl.style.color = "rgba(255,255,255,.9)";
+
+if (quizState.solved[q.id]) {
+  msgEl.innerHTML = "✅ ตอบถูก";
+  msgEl.style.color = "rgba(241,210,138,.95)";
+} 
+else if (quizState.revealed[q.id]) {
+  const ans =
+    (q.explain && String(q.explain).trim()) ||
+    (q.answerText && String(q.answerText).trim()) ||
+    (q.answer && String(q.answer).trim()) ||
+    "(ไม่มีเฉลย)";
+  msgEl.innerHTML = `📘 เฉลยคำตอบ: <b>${escapeHtml(ans)}</b>`;
+}
+else if (quizState.msg[q.id]) {
+  msgEl.innerHTML = quizState.msg[q.id];
+}
+else {
+  msgEl.innerHTML = "";
+}
 
   // ----- events -----
   qs("#btnCheck")?.addEventListener("click", ()=>checkAnswer(q, panel, type));
