@@ -42,14 +42,23 @@ export async function renderLivePanel() {
   const panel = qs("#livePanel");
   if (!panel) return;
 
-  if (state.role !== "student") {
-    panel.innerHTML = `<div class="muted">กรุณาเข้าสู่ระบบผู้เรียนก่อน</div>`;
+  const isStudent = state.role === "student";
+  const isAdmin = state.role === "admin";
+
+  if (!isStudent && !isAdmin) {
+    panel.innerHTML = `<div class="muted">กรุณาเข้าสู่ระบบก่อน</div>`;
     return;
   }
 
-  await refreshStudentFromDB();
+  if (isStudent) {
+    await refreshStudentFromDB();
+  }
 
-  const courseId = state.selectedCourseId || state.student?.courseId;
+  const courseId =
+    state.selectedCourseId ||
+    state.student?.courseId ||
+    state.admin?.selectedCourseId;
+
   if (!courseId) {
     panel.innerHTML = `<div class="muted">ยังไม่ได้เลือกคอร์ส</div>`;
     return;
@@ -63,37 +72,51 @@ export async function renderLivePanel() {
     return;
   }
 
+  // ===== สถานะเข้าร่วม =====
+  let joined = false;
+
+  if (isStudent) {
+    joined = !!state.student?.liveJoined;
+  } else if (isAdmin) {
+    joined = localStorage.getItem(`admin_live_${courseId}`) === "1";
+  }
+
   panel.innerHTML = `
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-end">
       <div>
         <div style="font-weight:700;font-size:18px">${course.name || ""}</div>
-        <div class="small muted">สถานะเรียนสด: ${state.student?.liveJoined ? "เข้าร่วมแล้ว" : "ยังไม่เข้าร่วม"}</div>
-        <div class="small muted">ปลดล็อกเอกสาร/แบบฝึกหัดเมื่อ: แอดมินประกาศ “จบคอร์ส”</div>
+        <div class="small muted">สถานะเรียนสด: ${joined ? "เข้าร่วมแล้ว" : "ยังไม่เข้าร่วม"}</div>
+        <div class="small muted">
+          ปลดล็อกเอกสาร/แบบฝึกหัดเมื่อ: แอดมินประกาศ “จบคอร์ส”
+        </div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button id="btnOpenLiveTab" class="btn btn-secondary">เรียนสดด้วย Meet</button>
+      <div>
+        <button id="btnOpenLiveTab" class="btn btn-secondary">
+          เรียนสดด้วย Meet
+        </button>
       </div>
     </div>
   `;
 
   const meetUrl = (course.meetUrl || "").trim();
 
-  const openMeet = async () => {
+  qs("#btnOpenLiveTab")?.addEventListener("click", async () => {
     if (!meetUrl) {
       toast("คอร์สนี้ยังไม่มีลิงก์ Google Meet");
       return;
     }
 
-    // mark live joined (save to DB)
-    if (!state.student?.liveJoined) {
+    if (isStudent && !state.student.liveJoined) {
       await markStudentLiveJoined(state.student.id);
       toast("บันทึกสถานะเข้าร่วมเรียนสดแล้ว");
-      await renderLivePanel(); // refresh status text
+    }
+
+    if (isAdmin) {
+      localStorage.setItem(`admin_live_${courseId}`, "1");
     }
 
     window.open(meetUrl, "_blank", "noopener,noreferrer");
-  };
+    await renderLivePanel();
+  });
 
-  const btn = qs("#btnOpenLiveTab");
-  if (btn) btn.addEventListener("click", openMeet);
 }
