@@ -51,7 +51,7 @@ body{
   background: url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png?v=101") center/cover no-repeat;
 
   /* จางลงตามที่คุณต้องการ */
-  opacity: 0.55;
+  opacity: 0.40;
 
   /* ปรับโทนให้ซอฟต์ ไม่จัด */
   filter: saturate(0.9) contrast(1.03) brightness(0.98);
@@ -411,6 +411,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
