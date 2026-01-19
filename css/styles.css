@@ -61,12 +61,12 @@ body{
     center / cover no-repeat;
 
   /* 🔑 คุมความจางของรูป (เลขนี้สำคัญที่สุด) */
-  opacity: 0.40;
+  opacity: 0.35;
 
   /* ปรับโทนภาพให้ซอฟต์ ไม่แสบตา */
   filter:
     saturate(0.9)
-    brightness(0.50)
+    brightness(0.95)
     contrast(1.02);
 }
 
@@ -77,9 +77,9 @@ body{
   inset:0;
 
   background:
-    radial-gradient(circle at 18% 14%, rgba(244,180,0,.10), transparent 55%),
-    radial-gradient(circle at 82% 22%, rgba(47,107,255,.08), transparent 60%),
-    radial-gradient(circle at 55% 85%, rgba(255,211,106,.06), transparent 62%);
+    radial-gradient(circle at 18% 14%, rgba(244,180,0,.10), transparent 70%),
+    radial-gradient(circle at 82% 22%, rgba(47,107,255,.08), transparent 80%),
+    radial-gradient(circle at 55% 85%, rgba(255,211,106,.06), transparent 72%);
 }
 
 
@@ -425,6 +425,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
