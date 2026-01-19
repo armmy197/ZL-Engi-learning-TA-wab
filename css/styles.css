@@ -35,7 +35,7 @@ body{
 .app-bg{
   background:
     linear-gradient(115deg, rgba(0, 30, 105, 0.858), rgba(121, 168, 255, 0.781)),
-    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png?v=3")
+    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png")
     center / cover no-repeat;
 }
 
@@ -391,6 +391,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
