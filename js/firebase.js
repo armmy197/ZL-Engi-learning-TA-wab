@@ -1,6 +1,8 @@
+// firebase.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { getStorage } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBSVmPLD_9rcqtVSgU2ye1QQsLy_pkKrzs",
@@ -12,6 +14,11 @@ const firebaseConfig = {
   measurementId: "G-DSGVLWMFFC"
 };
 
+// ✅ initializeApp ทำที่นี่ที่เดียวพอ
 export const app = initializeApp(firebaseConfig);
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// ✅ auth ใช้ app เดิม (ไม่สร้างซ้ำ)
+export const auth = getAuth(app);
