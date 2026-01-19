@@ -44,7 +44,7 @@ body{
       rgba(0, 30, 105, 0.45),
       rgba(121, 168, 255, 0.20)
     ),
-    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png?v=99");
+    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png");
 
   background-position: center;
   background-size: cover;
@@ -413,6 +413,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
