@@ -33,9 +33,28 @@ body{
 
 /* ✅ Background สดใสขึ้น: ลดความดำ เพิ่มแสงฟ้า+ทอง */
 .app-bg{
-  background:
-    linear-gradient(115deg, rgba(0, 30, 105, 0.858), rgba(121, 168, 255, 0.781)),
-    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png?v=99") center/cover no-repeat;
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+
+  /* รูปพื้นหลัง: ให้เห็นลาย แต่จางลง */
+  background-image:
+    linear-gradient(
+      115deg,
+      rgba(0, 30, 105, 0.45),
+      rgba(121, 168, 255, 0.20)
+    ),
+    url("https://cdn.jsdelivr.net/gh/armmy197/ZL-Engi-learning-TA-wab@main/Back_ZL.png?v=99");
+
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  /* ทำให้สีภาพจางลงโดยไม่ทำให้เบลอ */
+  opacity: 0.85;
+
+  /* ถ้าคุณเคยใส่ filter มาก่อน ให้คุมเบา ๆ แบบนี้พอ */
+  filter: saturate(0.95) contrast(1.02) brightness(0.98);
 }
 
 .app-bg::after{
@@ -390,6 +409,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
