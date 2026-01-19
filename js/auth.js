@@ -1,20 +1,39 @@
+// auth.js (SECURE VERSION)
 import { qs } from "./utils.js";
 import { state, setRole } from "./state.js";
 import { toast, showModal, closeModal, refreshRoleUI, setActiveRoute } from "./ui.js";
 import { studentJoinFlow } from "./student.js";
 import { loadCoursesIntoSelect } from "./courses.js";
 
-// ตามสเปคคุณ: แอดมินรหัสตายตัว (ไม่ปลอดภัยถ้าอยู่ฝั่งเว็บ)
-const ADMIN_USER = "KruArm";
-const ADMIN_PASS = "ZLTA198745";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+/* Firebase config */
+const firebaseConfig = {
+  apiKey: "AIzaSyBSVmPLD_9rcqtVSgU2ye1QQsLy_pkKrzs",
+  authDomain: "zl-ta-learning.firebaseapp.com",
+  projectId: "zl-ta-learning",
+  storageBucket: "zl-ta-learning.firebasestorage.app",
+  messagingSenderId: "467486749002",
+  appId: "1:467486749002:web:b2a48de85bd45ffb3051b3"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 export function bindAuthUI(){
-  // open role modal
+
+  // เปิด modal เลือกบทบาท
   qs("#btnRole").addEventListener("click", ()=>{
     showModal("roleModal");
   });
 
-  // shortcuts on home buttons
+  // ปุ่มลัดหน้าแรก
   qs("#btnJoinAsStudent").addEventListener("click", async ()=>{
     await openStudentJoin();
   });
@@ -22,7 +41,7 @@ export function bindAuthUI(){
     openAdminLogin();
   });
 
-  // choose role
+  // เลือกบทบาท
   qs("#roleStudent").addEventListener("click", async ()=>{
     closeModal("roleModal");
     await openStudentJoin();
@@ -32,25 +51,48 @@ export function bindAuthUI(){
     openAdminLogin();
   });
 
-  // student join submit
+  // ผู้เรียน
   qs("#btnStudentJoin").addEventListener("click", async ()=>{
     await studentJoinFlow();
   });
 
-  // admin login submit
-  qs("#btnAdminLogin").addEventListener("click", ()=>{
-    const u = qs("#adminUsername").value.trim();
-    const p = qs("#adminPassword").value;
+  // 🔐 แอดมินล็อกอิน (Firebase Auth)
+  qs("#btnAdminLogin").addEventListener("click", async ()=>{
+    const email = qs("#adminUsername").value.trim();   // ใช้ Email
+    const password = qs("#adminPassword").value;
 
-    if(u === ADMIN_USER && p === ADMIN_PASS){
-      setRole("admin");
-      state.admin = { username: u };
+    if(!email || !password){
+      toast("กรุณากรอก Email และ Password");
+      return;
+    }
+
+    try{
+      await signInWithEmailAndPassword(auth, email, password);
       closeModal("adminLoginModal");
+      toast("เข้าสู่ระบบแอดมินสำเร็จ");
+    }catch(err){
+      toast("ล็อกอินไม่สำเร็จ: " + err.message);
+    }
+  });
+
+  // ออกจากระบบ
+  qs("#btnLogout").addEventListener("click", async ()=>{
+    await signOut(auth);
+    toast("ออกจากระบบแล้ว");
+  });
+
+  // 👂 ฟังสถานะล็อกอิน
+  onAuthStateChanged(auth, (user)=>{
+    if(user){
+      setRole("admin");
+      state.admin = { email: user.email, uid: user.uid };
       refreshRoleUI();
       setActiveRoute("admin-dashboard");
-      toast("เข้าสู่ระบบแอดมินสำเร็จ");
     }else{
-      toast("Username หรือ Password ไม่ถูกต้อง");
+      setRole("guest");
+      state.admin = null;
+      refreshRoleUI();
+      setActiveRoute("home");
     }
   });
 }
