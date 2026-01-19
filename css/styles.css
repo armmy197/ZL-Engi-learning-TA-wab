@@ -59,13 +59,17 @@ body{
 
 .app-bg::after{
   content:"";
-  position:absolute; inset:0;
+  position:absolute;
+  inset:0;
+
   background:
-    radial-gradient(circle at 18% 14%, rgba(244,180,0,.26), transparent 46%),
-    radial-gradient(circle at 82% 22%, rgba(47,107,255,.22), transparent 52%),
-    radial-gradient(circle at 55% 85%, rgba(255,211,106,.12), transparent 55%);
-  z-index:-1;
+    radial-gradient(circle at 18% 14%, rgba(244,180,0,.12), transparent 50%),
+    radial-gradient(circle at 82% 22%, rgba(47,107,255,.10), transparent 55%),
+    radial-gradient(circle at 55% 85%, rgba(255,211,106,.08), transparent 58%);
+
+  pointer-events:none;
 }
+
 
 .glass{
   background: var(--glass);
@@ -409,6 +413,7 @@ textarea.input{ resize: vertical; }
   }
   .sidebar.open{ transform: translateX(0); }
 }
+
 
 
 
