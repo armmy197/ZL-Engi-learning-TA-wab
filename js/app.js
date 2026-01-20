@@ -4,10 +4,18 @@ import { bindLiveUI, renderLivePanel } from "./live.js";
 import { renderLessons } from "./lessons.js";
 import { renderQuizzes } from "./quizzes.js";
 import { renderDocuments } from "./documents.js";
-import { renderCourseGrids, maybeShowPromotePopup, bindAdminCourseUI, renderAdminCourses } from "./courses.js";
+import {
+  renderCourseGrids,
+  maybeShowPromotePopup,
+  bindAdminCourseUI,
+  renderAdminCourses,
+} from "./courses.js";
 import { renderHomeStatsAndChart } from "./charts.js";
 import { state } from "./state.js";
-import { renderAdminDashboard, renderAdminStudents, renderAdminDocs, bindAdminExport } from "./admin.js";
+
+// ✅ เปลี่ยนจาก named import เป็น namespace import เพื่อกันพังตอน admin.js ไม่มี export บางตัว
+import * as Admin from "./admin.js";
+
 import { renderAdminLessons } from "./admin_lessons.js";
 import { auth, authReady } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -16,14 +24,16 @@ bindGlobalUI();
 bindAuthUI();
 bindLiveUI();
 bindAdminCourseUI();
-bindAdminExport();
+
+// ✅ เรียกเฉพาะถ้ามีจริง (admin.js ไม่มี export ก็ไม่พัง)
+if (typeof Admin.bindAdminExport === "function") {
+  Admin.bindAdminExport();
+}
 
 refreshRoleUI();
 setActiveRoute("home");
 
 // ✅ รอให้ Auth state พร้อมก่อนค่อย bootstrap
-// หมายเหตุ: บางเครื่อง/บาง browser ตอนรีโหลดหน้า จะมีการยิง Firestore ก่อน auth พร้อม
-// ทำให้เด้ง Missing or insufficient permissions ได้
 let _booted = false;
 onAuthStateChanged(auth, async () => {
   await authReady;
@@ -33,7 +43,6 @@ onAuthStateChanged(auth, async () => {
     await bootstrap();
     _booted = true;
   } catch (e) {
-    // กันไม่ให้เด้ง Uncaught (in promise)
     console.error("bootstrap failed:", e);
     toast("โหลดข้อมูลไม่ได้ (สิทธิ์ไม่พอ / Rules / App Check)");
   }
@@ -99,11 +108,18 @@ async function bootstrap() {
       if (route === "student-quizzes") await renderQuizzes();
       if (route === "student-docs") await renderDocuments();
 
-      // admin routes
-      if (route === "admin-dashboard") await renderAdminDashboard();
+      // admin routes (เรียกผ่าน Admin.* แบบกันพัง)
+      if (route === "admin-dashboard" && typeof Admin.renderAdminDashboard === "function") {
+        await Admin.renderAdminDashboard();
+      }
       if (route === "admin-courses") await safeRun(() => renderAdminCourses());
-      if (route === "admin-students") await renderAdminStudents();
-      if (route === "admin-docs") await renderAdminDocs();
+
+      if (route === "admin-students" && typeof Admin.renderAdminStudents === "function") {
+        await Admin.renderAdminStudents();
+      }
+      if (route === "admin-docs" && typeof Admin.renderAdminDocs === "function") {
+        await Admin.renderAdminDocs();
+      }
       if (route === "admin-lessons") await renderAdminLessons();
 
       if (route === "admin-live") {
