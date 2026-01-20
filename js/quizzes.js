@@ -1,7 +1,6 @@
 import { db } from "./firebase.js";
 import { qs, escapeHtml } from "./utils.js";
 import { state } from "./state.js";
-import { refreshStudentFromDB } from "./student.js";
 import { toast } from "./ui.js";
 
 import {
@@ -17,6 +16,14 @@ let quizState = {
   items: []
 };
 
+function getCourseId(){
+  return state.selectedCourseId || state.student?.courseId || null;
+}
+
+function hasJoinedLive(courseId){
+  return !!state.student?.liveJoined || localStorage.getItem(`student_live_${courseId}`) === "1";
+}
+
 export async function renderQuizzes(){
   const panel = qs("#quizPanel");
 
@@ -25,10 +32,13 @@ export async function renderQuizzes(){
     return;
   }
 
-  await refreshStudentFromDB();
-
-  const courseId = state.selectedCourseId || state.student.courseId;
+  const courseId = getCourseId();
   const lessonId = state.selectedLessonId;
+
+  if(!courseId){
+    panel.innerHTML = `<div class="muted">ยังไม่ได้เลือกคอร์ส</div>`;
+    return;
+  }
 
   if(!lessonId){
     panel.innerHTML = `<div class="muted">กรุณาเลือกบทเรียนก่อน</div>`;
@@ -38,8 +48,9 @@ export async function renderQuizzes(){
   const courseSnap = await getDoc(doc(db, "courses", courseId));
   const course = courseSnap.exists() ? courseSnap.data() : null;
 
-  if(!course?.quizOpen || !state.student.liveJoined){
-    panel.innerHTML = `<div class="muted">ต้องเข้าเรียนสดก่อน จึงทำแบบฝึกหัดได้</div>`;
+  // ✅ ปลดล็อกแบบฝึกหัด: อิง course.quizOpen + joinedLive (local)
+  if(!course?.quizOpen || !hasJoinedLive(courseId)){
+    panel.innerHTML = `<div class="muted">ต้องเข้าเรียนสดก่อน + แอดมินเปิดแบบฝึกหัด (quizOpen) จึงทำได้</div>`;
     return;
   }
 
@@ -137,34 +148,33 @@ function renderQuiz(panel){
     </div>
   `;
 
-// ----- message (FIXED) -----
-const msgEl = qs("#quizMsg");
-msgEl.style.color = "rgba(255,255,255,.9)";
+  // ----- message -----
+  const msgEl = qs("#quizMsg");
+  msgEl.style.color = "rgba(255,255,255,.9)";
 
-if (quizState.solved[q.id]) {
-  msgEl.innerHTML = "✅ ตอบถูก";
-  msgEl.style.color = "rgba(241,210,138,.95)";
-} 
-else if (quizState.revealed[q.id]) {
-  const ans =
-    (q.explain && String(q.explain).trim()) ||
-    (q.answerText && String(q.answerText).trim()) ||
-    (q.answer && String(q.answer).trim()) ||
-    "(ไม่มีเฉลย)";
-  msgEl.innerHTML = `
-  📘 เฉลยคำตอบ:
-  <b style="font-size:22px; line-height:1.4;">
-    ${escapeHtml(ans)}
-  </b>
-`;
-}
-else if (quizState.msg[q.id]) {
-  msgEl.innerHTML = quizState.msg[q.id];
-}
-else {
-  msgEl.innerHTML = "";
-}
-
+  if (quizState.solved[q.id]) {
+    msgEl.innerHTML = "✅ ตอบถูก";
+    msgEl.style.color = "rgba(241,210,138,.95)";
+  }
+  else if (quizState.revealed[q.id]) {
+    const ans =
+      (q.explain && String(q.explain).trim()) ||
+      (q.answerText && String(q.answerText).trim()) ||
+      (q.answer && String(q.answer).trim()) ||
+      "(ไม่มีเฉลย)";
+    msgEl.innerHTML = `
+      📘 เฉลยคำตอบ:
+      <b style="font-size:22px; line-height:1.4;">
+        ${escapeHtml(ans)}
+      </b>
+    `;
+  }
+  else if (quizState.msg[q.id]) {
+    msgEl.innerHTML = quizState.msg[q.id];
+  }
+  else {
+    msgEl.innerHTML = "";
+  }
 
   // ----- events -----
   qs("#btnCheck")?.addEventListener("click", ()=>checkAnswer(q, panel, type));
@@ -197,7 +207,7 @@ else {
 }
 
 function checkAnswer(q, panel, type){
-  // เตือน: ต้องตอบก่อน
+  // ต้องตอบก่อน
   if(type === "choice"){
     const sel = document.querySelector('input[name="quizChoice"]:checked');
     if(!sel){
@@ -212,11 +222,9 @@ function checkAnswer(q, panel, type){
     }
   }
 
-  // เพิ่มจำนวนครั้ง
   quizState.attempts[q.id] = (quizState.attempts[q.id] || 0) + 1;
   const tries = quizState.attempts[q.id];
 
-  // ตรวจคำตอบ
   let correct = false;
 
   if(type === "choice"){
@@ -237,11 +245,9 @@ function checkAnswer(q, panel, type){
     } else if(tries === 2){
       quizState.msg[q.id] = "❌ คุณตอบผิด ครั้งที่ 2 (สามารถกด “ดูเฉลยคำตอบ” ได้)";
     } else {
-      // เผื่อมีกรณีลองกดซ้ำ
       quizState.msg[q.id] = `❌ คุณตอบผิด (พยายาม ${tries} ครั้ง)`;
     }
   }
 
   renderQuiz(panel);
 }
-
