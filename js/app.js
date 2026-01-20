@@ -9,8 +9,6 @@ import { renderHomeStatsAndChart } from "./charts.js";
 import { state } from "./state.js";
 import { renderAdminDashboard, renderAdminStudents, renderAdminDocs, bindAdminExport } from "./admin.js";
 import { renderAdminLessons } from "./admin_lessons.js";
-import { auth } from "./firebase.js";
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 
 bindGlobalUI();
@@ -22,14 +20,7 @@ bindAdminExport();
 refreshRoleUI();
 setActiveRoute("home");
 
-// ✅ รอให้ Auth พร้อมก่อนค่อยโหลด Firestore (กัน Missing or insufficient permissions)
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    console.warn("ยังไม่ได้เข้าสู่ระบบ → ไม่โหลดคอร์สจาก Firestore");
-    return;
-  }
-  await bootstrap();
-});
+await bootstrap();
 
 async function bootstrap(){
   // initial load
@@ -69,6 +60,7 @@ async function bootstrap(){
         await renderHomeStatsAndChart();
       }
     });
+  });
 
   // also make topbar role button open modal
   document.querySelector("#btnRole").addEventListener("click", ()=>{});
@@ -83,4 +75,3 @@ async function bootstrap(){
 
   toast("พร้อมใช้งาน");
 }
-
