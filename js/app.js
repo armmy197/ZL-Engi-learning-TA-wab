@@ -4,17 +4,20 @@ import { bindLiveUI, renderLivePanel } from "./live.js";
 import { renderLessons } from "./lessons.js";
 import { renderQuizzes } from "./quizzes.js";
 import { renderDocuments } from "./documents.js";
+
 import {
   renderCourseGrids,
   maybeShowPromotePopup,
   bindAdminCourseUI,
   renderAdminCourses,
 } from "./courses.js";
+
+// ✅ import แค่ครั้งเดียวพอ
 import { renderHomeStatsAndChart } from "./charts.js";
+
 import { state } from "./state.js";
 
-// ✅ เปลี่ยนจาก named import เป็น namespace import
-// เพื่อกันกรณี admin.js ไม่มี export บางตัวแล้วเว็บพังทั้งไฟล์
+// ✅ ใช้ namespace import กันพังถ้า admin.js ไม่มีบาง export
 import * as Admin from "./admin.js";
 
 import { renderAdminLessons } from "./admin_lessons.js";
@@ -151,5 +154,3 @@ async function bootstrap() {
 
   toast("พร้อมใช้งาน");
 }
-
-
