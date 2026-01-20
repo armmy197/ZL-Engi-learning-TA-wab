@@ -12,14 +12,11 @@ import {
   renderAdminCourses,
 } from "./courses.js";
 
-// ✅ import แค่ครั้งเดียวพอ
+// ✅ ต้องมีแค่ครั้งเดียว (ห้ามซ้ำ)
 import { renderHomeStatsAndChart } from "./charts.js";
 
 import { state } from "./state.js";
-
-// ✅ ใช้ namespace import กันพังถ้า admin.js ไม่มีบาง export
 import * as Admin from "./admin.js";
-
 import { renderAdminLessons } from "./admin_lessons.js";
 import { auth, authReady } from "./firebase.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -29,7 +26,6 @@ bindAuthUI();
 bindLiveUI();
 bindAdminCourseUI();
 
-// ✅ เรียก bindAdminExport เฉพาะถ้ามีจริง
 if (typeof Admin.bindAdminExport === "function") {
   Admin.bindAdminExport();
 }
@@ -37,7 +33,6 @@ if (typeof Admin.bindAdminExport === "function") {
 refreshRoleUI();
 setActiveRoute("home");
 
-// ✅ รอให้ Auth state พร้อมก่อนค่อย bootstrap
 let _booted = false;
 onAuthStateChanged(auth, async () => {
   await authReady;
@@ -61,11 +56,6 @@ function toastOncePermissionDenied() {
   toast("สิทธิ์ไม่พออ่าน Firestore (ตรวจ Rules/App Check)");
 }
 
-/**
- * safeRun
- * - ไม่ให้ permission-denied โผล่เป็น error แดงใน console
- * - กัน Uncaught (in promise)
- */
 async function safeRun(fn, { silentPermissionDenied = false, onPermissionDenied, onError } = {}) {
   try {
     return await fn();
@@ -88,24 +78,20 @@ async function safeRun(fn, { silentPermissionDenied = false, onPermissionDenied,
 }
 
 async function bootstrap() {
-  // initial load
   await safeRun(() => renderCourseGrids());
   await safeRun(() => renderHomeStatsAndChart(), { silentPermissionDenied: true });
   await safeRun(() => maybeShowPromotePopup());
 
-  // when route changes: re-render
   document.querySelectorAll(".nav-item[data-route]").forEach((a) => {
     a.addEventListener("click", async () => {
       const route = a.dataset.route;
 
-      // student routes
       if (route === "student-courses") await safeRun(() => renderCourseGrids());
       if (route === "student-live") await renderLivePanel();
       if (route === "student-lessons") await renderLessons();
       if (route === "student-quizzes") await renderQuizzes();
       if (route === "student-docs") await renderDocuments();
 
-      // admin routes (เรียกผ่าน Admin.* เพื่อกันพังถ้าบางฟังก์ชันไม่มี)
       if (route === "admin-dashboard" && typeof Admin.renderAdminDashboard === "function") {
         await Admin.renderAdminDashboard();
       }
@@ -126,7 +112,6 @@ async function bootstrap() {
         return;
       }
 
-      // home refresh
       if (route === "home") {
         await safeRun(() => renderCourseGrids());
         await safeRun(() => renderHomeStatsAndChart(), { silentPermissionDenied: true });
@@ -136,7 +121,6 @@ async function bootstrap() {
 
   document.querySelector("#btnRole")?.addEventListener("click", () => {});
 
-  // home stats auto refresh
   statsTimer = setInterval(async () => {
     const homeActive = document.querySelector("#view-home")?.classList.contains("active");
     if (!homeActive) return;
