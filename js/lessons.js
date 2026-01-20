@@ -1,11 +1,14 @@
 import { db } from "./firebase.js";
 import { qs, escapeHtml } from "./utils.js";
 import { state } from "./state.js";
-import { refreshStudentFromDB } from "./student.js";
 
 import {
   doc, getDoc, getDocs, collection, query, orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+function getCourseId() {
+  return state.selectedCourseId || state.student?.courseId || null;
+}
 
 export async function renderLessons(){
   const panel = qs("#lessonsPanel");
@@ -15,15 +18,19 @@ export async function renderLessons(){
     return;
   }
 
-  await refreshStudentFromDB();
+  const courseId = getCourseId();
+  if(!courseId){
+    panel.innerHTML = `<div class="muted">ยังไม่ได้เลือกคอร์ส</div>`;
+    return;
+  }
 
-  const courseId = state.selectedCourseId || state.student.courseId;
   const courseSnap = await getDoc(doc(db, "courses", courseId));
   const course = courseSnap.exists() ? courseSnap.data() : null;
 
-  const unlocked = !!course?.lessonOpen || !!state.student.courseEnded;
+  // ✅ ปลดล็อกบทเรียน: อิงจาก course เท่านั้น (ปลอดภัย + อ่านได้ทุกคน)
+  const unlocked = !!course?.lessonOpen;
   if(!unlocked){
-    panel.innerHTML = `<div class="muted">ยังไม่ปลดล็อกบทเรียน</div>`;
+    panel.innerHTML = `<div class="muted">ยังไม่ปลดล็อกบทเรียน (รอแอดมินเปิด lessonOpen)</div>`;
     return;
   }
 
