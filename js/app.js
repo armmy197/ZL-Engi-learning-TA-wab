@@ -13,7 +13,8 @@ import {
 import { renderHomeStatsAndChart } from "./charts.js";
 import { state } from "./state.js";
 
-// ✅ เปลี่ยนจาก named import เป็น namespace import เพื่อกันพังตอน admin.js ไม่มี export บางตัว
+// ✅ เปลี่ยนจาก named import เป็น namespace import
+// เพื่อกันกรณี admin.js ไม่มี export บางตัวแล้วเว็บพังทั้งไฟล์
 import * as Admin from "./admin.js";
 
 import { renderAdminLessons } from "./admin_lessons.js";
@@ -25,7 +26,7 @@ bindAuthUI();
 bindLiveUI();
 bindAdminCourseUI();
 
-// ✅ เรียกเฉพาะถ้ามีจริง (admin.js ไม่มี export ก็ไม่พัง)
+// ✅ เรียก bindAdminExport เฉพาะถ้ามีจริง
 if (typeof Admin.bindAdminExport === "function") {
   Admin.bindAdminExport();
 }
@@ -61,11 +62,6 @@ function toastOncePermissionDenied() {
  * safeRun
  * - ไม่ให้ permission-denied โผล่เป็น error แดงใน console
  * - กัน Uncaught (in promise)
- *
- * options:
- * - silentPermissionDenied: true -> ไม่ toast/ไม่ warn
- * - onPermissionDenied: fn
- * - onError: fn
  */
 async function safeRun(fn, { silentPermissionDenied = false, onPermissionDenied, onError } = {}) {
   try {
@@ -73,7 +69,6 @@ async function safeRun(fn, { silentPermissionDenied = false, onPermissionDenied,
   } catch (e) {
     const code = e?.code || "";
     if (code === "permission-denied") {
-      // ✅ ทำให้ไม่เป็น error แดง (ใช้ warn แบบเงียบแทน)
       if (!silentPermissionDenied) {
         console.warn("permission-denied (silenced):", e?.message || e);
         toastOncePermissionDenied();
@@ -82,7 +77,6 @@ async function safeRun(fn, { silentPermissionDenied = false, onPermissionDenied,
       return null;
     }
 
-    // error อื่น ๆ ยัง log ได้
     console.error("safeRun error:", e);
     if (typeof onError === "function") onError(e);
     toast(e?.message || "เกิดข้อผิดพลาด");
@@ -108,7 +102,7 @@ async function bootstrap() {
       if (route === "student-quizzes") await renderQuizzes();
       if (route === "student-docs") await renderDocuments();
 
-      // admin routes (เรียกผ่าน Admin.* แบบกันพัง)
+      // admin routes (เรียกผ่าน Admin.* เพื่อกันพังถ้าบางฟังก์ชันไม่มี)
       if (route === "admin-dashboard" && typeof Admin.renderAdminDashboard === "function") {
         await Admin.renderAdminDashboard();
       }
@@ -120,6 +114,7 @@ async function bootstrap() {
       if (route === "admin-docs" && typeof Admin.renderAdminDocs === "function") {
         await Admin.renderAdminDocs();
       }
+
       if (route === "admin-lessons") await renderAdminLessons();
 
       if (route === "admin-live") {
@@ -136,11 +131,9 @@ async function bootstrap() {
     });
   });
 
-  // also make topbar role button open modal
   document.querySelector("#btnRole")?.addEventListener("click", () => {});
 
   // home stats auto refresh
-  // ✅ ถ้าโดน permission-denied ให้หยุด interval ทันที + ไม่ spam console
   statsTimer = setInterval(async () => {
     const homeActive = document.querySelector("#view-home")?.classList.contains("active");
     if (!homeActive) return;
@@ -152,8 +145,6 @@ async function bootstrap() {
           clearInterval(statsTimer);
           statsTimer = null;
         }
-        // ถ้าคุณอยากให้แจ้งผู้ใช้ครั้งเดียว ให้เปิดบรรทัดนี้
-        // toastOncePermissionDenied();
       },
     });
   }, 8000);
