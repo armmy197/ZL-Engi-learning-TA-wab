@@ -45,6 +45,10 @@ export async function studentJoinFlow(){
   closeModal("studentJoinModal");
   refreshRoleUI();
   toast("เข้าสู่ระบบผู้เรียนแล้ว");
+
+  // ✅ หลังเข้าสู่ระบบผู้เรียน ให้พาไปหน้า "เข้าเรียนสด" ทันที
+  // ให้ app.js เป็นคนรับ event แล้วนำทาง/เรนเดอร์หน้า เพื่อเลี่ยงปัญหา import วนกัน
+  window.dispatchEvent(new CustomEvent("student:joined", { detail: { courseId } }));
 }
 
 export async function markStudentLiveJoined(studentId){
@@ -54,7 +58,15 @@ export async function markStudentLiveJoined(studentId){
 
 export async function refreshStudentFromDB(){
   if(!state.student?.id) return;
-  const snap = await getDoc(doc(db, COL, state.student.id));
-  if(!snap.exists()) return;
-  state.student = { id:snap.id, ...snap.data() };
+
+  try {
+    const snap = await getDoc(doc(db, COL, state.student.id));
+    if(!snap.exists()) return;
+    state.student = { id:snap.id, ...snap.data() };
+  } catch (e) {
+    // ✅ ผู้เรียนส่วนใหญ่ไม่ได้ Firebase Auth => Rules จะ deny /students read
+    // อย่าให้เด้ง Uncaught (in promise)
+    if (e?.code === "permission-denied") return;
+    throw e;
+  }
 }
