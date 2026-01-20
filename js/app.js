@@ -69,7 +69,6 @@ async function bootstrap(){
         await renderHomeStatsAndChart();
       }
     });
-  });
 
   // also make topbar role button open modal
   document.querySelector("#btnRole").addEventListener("click", ()=>{});
@@ -84,3 +83,4 @@ async function bootstrap(){
 
   toast("พร้อมใช้งาน");
 }
+
