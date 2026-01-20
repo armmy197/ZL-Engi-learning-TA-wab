@@ -59,7 +59,6 @@ async function bootstrap(){
         await renderCourseGrids();
         await renderHomeStatsAndChart();
       }
-    });
   });
 
   // also make topbar role button open modal
@@ -75,3 +74,4 @@ async function bootstrap(){
 
   toast("พร้อมใช้งาน");
 }
+
