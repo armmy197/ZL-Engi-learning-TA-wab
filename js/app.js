@@ -4,7 +4,6 @@ import { bindLiveUI, renderLivePanel } from "./live.js";
 import { renderLessons } from "./lessons.js";
 import { renderQuizzes } from "./quizzes.js";
 import { renderDocuments } from "./documents.js";
-import { renderHomeStatsAndChart } from "./charts.js";
 import {
   renderCourseGrids,
   maybeShowPromotePopup,
@@ -152,4 +151,5 @@ async function bootstrap() {
 
   toast("พร้อมใช้งาน");
 }
+
 
