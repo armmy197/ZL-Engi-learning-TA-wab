@@ -1,9 +1,17 @@
 import { db } from "./firebase.js";
 import { qs, escapeHtml } from "./utils.js";
 import { state } from "./state.js";
-import { refreshStudentFromDB } from "./student.js";
 
 import { doc, getDoc, getDocs, collection, query, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+function getCourseId(){
+  return state.selectedCourseId || state.student?.courseId || null;
+}
+
+function hasJoinedLive(courseId){
+  // ✅ แหล่งเดียวกันกับ live.js (ทางเลือก 1)
+  return !!state.student?.liveJoined || localStorage.getItem(`student_live_${courseId}`) === "1";
+}
 
 export async function renderDocuments(){
   const panel = qs("#docsPanel");
@@ -11,13 +19,17 @@ export async function renderDocuments(){
     panel.innerHTML = `<div class="muted">กรุณาเข้าสู่ระบบผู้เรียนก่อน</div>`;
     return;
   }
-  await refreshStudentFromDB();
 
-  const courseId = state.selectedCourseId || state.student.courseId;
+  const courseId = getCourseId();
+  if(!courseId){
+    panel.innerHTML = `<div class="muted">ยังไม่ได้เลือกคอร์ส</div>`;
+    return;
+  }
+
   const courseSnap = await getDoc(doc(db, "courses", courseId));
   const course = courseSnap.exists() ? courseSnap.data() : null;
 
-  const unlocked = !!course?.docsOpen && !!state.student.liveJoined;
+  const unlocked = !!course?.docsOpen && hasJoinedLive(courseId);
   if(!unlocked){
     panel.innerHTML = `<div class="muted">เอกสารยังดาวน์โหลดไม่ได้ (ต้องเข้าร่วมเรียนสด + แอดมินเปิดสิทธิ์ดาวน์โหลด)</div>`;
     return;
@@ -38,4 +50,3 @@ export async function renderDocuments(){
     </div>
   `).join("") : `<div class="muted">ยังไม่มีเอกสารในคอร์สนี้</div>`;
 }
-
