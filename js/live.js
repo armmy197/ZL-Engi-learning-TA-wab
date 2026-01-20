@@ -1,29 +1,40 @@
-// live.js — open Google Meet in new tab (no floating popup)
+// live.js — Student Live join (NO Firestore write for students)
+// - Student: mark joined in state + localStorage only (no permission issues)
+// - Admin: keep localStorage flag for UI
+// - Reads course meetUrl from Firestore (courses read is allowed)
 
 import { db } from "./firebase.js";
 import { state } from "./state.js";
 import { toast } from "./ui.js";
-import { markStudentLiveJoined, refreshStudentFromDB } from "./student.js";
+
+// ถ้ามี utils.js ใช้ qs ได้เลย ถ้าไม่มีให้ fallback
+function qs(sel, root = document) {
+  return root.querySelector(sel);
+}
 
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const COURSES = "courses";
 
-/** fallback qs */
-function qsLocal(sel, root = document) {
-  return root.querySelector(sel);
-}
-
-let qs = qsLocal;
-try {
-  const mod = await import("./utils.js");
-  if (typeof mod.qs === "function") qs = mod.qs;
-} catch (e) {
-  // ignore
-}
-
 export function bindLiveUI() {
-  // keep for compatibility
+  // reserved (compat)
+}
+
+function getCourseIdForLive() {
+  return (
+    state.selectedCourseId ||
+    state.student?.courseId ||
+    state.admin?.selectedCourseId ||
+    null
+  );
+}
+
+function getStudentJoinedKey(courseId) {
+  return `student_live_${courseId}`;
+}
+
+function getAdminJoinedKey(courseId) {
+  return `admin_live_${courseId}`;
 }
 
 export async function renderLivePanel() {
@@ -38,26 +49,13 @@ export async function renderLivePanel() {
     return;
   }
 
-  if (isStudent) {
-    // ผู้เรียนส่วนใหญ่ไม่ได้ Firebase Auth => /students read อาจโดน deny
-    // ไม่ให้เด้ง error/Uncaught
-    try {
-      await refreshStudentFromDB();
-    } catch (e) {
-      console.warn("refreshStudentFromDB skipped:", e?.code || e);
-    }
-  }
-
-  const courseId =
-    state.selectedCourseId ||
-    state.student?.courseId ||
-    state.admin?.selectedCourseId;
-
+  const courseId = getCourseIdForLive();
   if (!courseId) {
     panel.innerHTML = `<div class="muted">ยังไม่ได้เลือกคอร์ส</div>`;
     return;
   }
 
+  // Load course data (read allowed)
   let course = null;
   try {
     const courseSnap = await getDoc(doc(db, COURSES, courseId));
@@ -72,11 +70,15 @@ export async function renderLivePanel() {
     return;
   }
 
+  const meetUrl = (course.meetUrl || "").trim();
+
+  // ✅ joined status (NO Firestore for student)
   let joined = false;
   if (isStudent) {
-    joined = !!state.student?.liveJoined;
+    const localJoined = localStorage.getItem(getStudentJoinedKey(courseId)) === "1";
+    joined = !!state.student?.liveJoined || localJoined;
   } else if (isAdmin) {
-    joined = localStorage.getItem(`admin_live_${courseId}`) === "1";
+    joined = localStorage.getItem(getAdminJoinedKey(courseId)) === "1";
   }
 
   panel.innerHTML = `
@@ -84,7 +86,7 @@ export async function renderLivePanel() {
       <div>
         <div style="font-weight:700;font-size:18px">${course.name || ""}</div>
         <div class="small muted">สถานะเรียนสด: ${joined ? "เข้าร่วมแล้ว" : "ยังไม่เข้าร่วม"}</div>
-        <div class="small muted">ปลดล็อกเอกสาร/แบบฝึกหัดเมื่อ: แอดมินประกาศ “จบคอร์ส”</div>
+        <div class="small muted">หมายเหตุ: ผู้เรียนสามารถเปิด Meet ได้ทันที (ไม่ต้องบันทึกลง Firestore)</div>
       </div>
       <div>
         <button id="btnOpenLiveTab" class="btn btn-secondary">เรียนสดด้วย Meet</button>
@@ -92,37 +94,30 @@ export async function renderLivePanel() {
     </div>
   `;
 
-  const meetUrl = (course.meetUrl || "").trim();
-
   qs("#btnOpenLiveTab")?.addEventListener("click", async () => {
     if (!meetUrl) {
       toast("คอร์สนี้ยังไม่มีลิงก์ Google Meet");
       return;
     }
 
-    if (isStudent && !state.student?.liveJoined) {
-      try {
-        if (state.student?.id) {
-          await markStudentLiveJoined(state.student.id);
-        }
-        toast("บันทึกสถานะเข้าร่วมเรียนสดแล้ว");
-      } catch (e) {
-        // ✅ ถ้า rules deny (update students) ให้ยังเปิด Meet ได้ตามปกติ
-        if (e?.code === "permission-denied") {
-          console.warn("markStudentLiveJoined denied:", e?.message || e);
-          toast("เปิด Meet ได้ แต่บันทึกสถานะไม่ได้ (สิทธิ์ไม่พอ)");
-        } else {
-          console.error("markStudentLiveJoined error:", e);
-          toast("เปิด Meet ได้ แต่บันทึกสถานะล้มเหลว");
-        }
-      }
+    // ✅ Student: store joined locally (NO Firestore write)
+    if (isStudent && !joined) {
+      if (!state.student) state.student = {};
+      state.student.liveJoined = true;
+      state.student.liveJoinedAt = new Date();
+
+      localStorage.setItem(getStudentJoinedKey(courseId), "1");
+      toast("เข้าเรียนสดแล้ว");
     }
 
-    if (isAdmin) {
-      localStorage.setItem(`admin_live_${courseId}`, "1");
+    // Admin: remember joined for UI
+    if (isAdmin && !joined) {
+      localStorage.setItem(getAdminJoinedKey(courseId), "1");
     }
 
     window.open(meetUrl, "_blank", "noopener,noreferrer");
+
+    // re-render to update status text
     await renderLivePanel();
   });
 }
