@@ -10,12 +10,23 @@ import {
 const COL = "courses";
 
 export async function getAllCourses(){
-  const snap = await getDocs(collection(db, COL));
-  const out = [];
-  snap.forEach(d=> out.push({ id:d.id, ...d.data() }));
-  // sort by createdAt if exists
-  out.sort((a,b)=> (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
-  return out;
+  try{
+    const snap = await getDocs(collection(db, COL));
+    const out = [];
+    snap.forEach(d=> out.push({ id:d.id, ...d.data() }));
+    // sort by createdAt if exists
+    out.sort((a,b)=> (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
+    return out;
+  }catch(e){
+    // กัน Uncaught (in promise) และช่วยบอกเหตุผลแบบอ่านง่าย
+    console.error("getAllCourses failed:", e);
+    if(e?.code === "permission-denied"){
+      toast("อ่านคอร์สไม่ได้: สิทธิ์ไม่พอ (Firestore Rules/App Check)");
+      return [];
+    }
+    toast(e?.message || "โหลดคอร์สไม่สำเร็จ");
+    return [];
+  }
 }
 
 export function courseCard(course, { onJoin, showAdmin=false, onEdit, onDelete, onPromoteToggle } = {}){
