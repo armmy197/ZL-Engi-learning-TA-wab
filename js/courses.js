@@ -1,4 +1,4 @@
-import { db } from "../js/firebase.js";
+import { db, authReady, isSignedIn } from "../js/firebase.js";
 import { qs, escapeHtml } from "./utils.js";
 import { state } from "../js/state.js";
 import { toast, showModal, closeModal } from "../js/ui.js";
@@ -10,18 +10,25 @@ import {
 const COL = "courses";
 
 export async function getAllCourses(){
+  // กันกรณีบางหน้าเรียกก่อน Auth state พร้อม
+  // (เช่น หน้าเพิ่งโหลด / reload แล้ว code บางส่วนยิง Firestore ทันที)
+  await authReady;
+
   try{
     const snap = await getDocs(collection(db, COL));
     const out = [];
     snap.forEach(d=> out.push({ id:d.id, ...d.data() }));
-    // sort by createdAt if exists
     out.sort((a,b)=> (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
     return out;
   }catch(e){
-    // กัน Uncaught (in promise) และช่วยบอกเหตุผลแบบอ่านง่าย
     console.error("getAllCourses failed:", e);
     if(e?.code === "permission-denied"){
-      toast("อ่านคอร์สไม่ได้: สิทธิ์ไม่พอ (Firestore Rules/App Check)");
+      // ถ้า user ยังไม่ล็อกอิน ให้บอกสาเหตุแบบตรงไปตรงมา
+      if(!isSignedIn()){
+        toast("กรุณาเข้าสู่ระบบก่อน (Firestore ปฏิเสธสิทธิ์)");
+      }else{
+        toast("อ่านคอร์สไม่ได้: สิทธิ์ไม่พอ (Firestore Rules / App Check)");
+      }
       return [];
     }
     toast(e?.message || "โหลดคอร์สไม่สำเร็จ");
@@ -29,7 +36,7 @@ export async function getAllCourses(){
   }
 }
 
-export function courseCard(course, { onJoin, showAdmin=false, onEdit, onDelete, onPromoteToggle } = {}){
+export function courseCard(course, { onJoin, showAdmin=false } = {}){
   const cover = course.coverUrl || "https://images.unsplash.com/photo-1526378722484-bd91ca387e72?auto=format&fit=crop&w=1200&q=60";
   return `
   <div class="course-card">
@@ -56,17 +63,14 @@ export function courseCard(course, { onJoin, showAdmin=false, onEdit, onDelete, 
 
 export async function renderCourseGrids(){
   const courses = await getAllCourses();
-  // home
   qs("#courseGridHome").innerHTML = courses.map(c=>courseCard(c)).join("");
-  // student
   qs("#courseGridStudent").innerHTML = courses.map(c=>courseCard(c, { onJoin:true })).join("");
-  // promote area
+
   const promote = courses.filter(c=>c.promote);
   qs("#promoteArea").innerHTML = promote.length
     ? promote.map(c=>`• ${escapeHtml(c.name)}<br>`).join("")
     : `<span class="muted">ยังไม่มีคอร์สโปรโมท</span>`;
 
-  // bind join click
   document.querySelectorAll("[data-join]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       state.selectedCourseId = btn.dataset.join;
@@ -92,7 +96,6 @@ export async function maybeShowPromotePopup(){
 
   const body = promote.slice(0,3).map(c=>{
     const cover = c.coverUrl || "https://images.unsplash.com/photo-1526378722484-bd91ca387e72?auto=format&fit=crop&w=1200&q=60";
-
     return `
       <div class="card" style="
         background:rgba(255,255,255,.06);
