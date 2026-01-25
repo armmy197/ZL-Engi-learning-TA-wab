@@ -85,7 +85,6 @@ export async function renderLivePanel() {
       <div>
         <div style="font-weight:700;font-size:18px">${course.name || ""}</div>
         <div class="small muted">สถานะเรียนสด: ${joined ? "เข้าร่วมแล้ว" : "ยังไม่เข้าร่วม"}</div>
-        <div class="small muted">ผู้เรียนเปิด Meet ได้ทันที (ไม่ต้องบันทึกลง Firestore)</div>
       </div>
       <div>
         <button id="btnOpenLiveTab" class="btn btn-secondary">เรียนสดด้วย Meet</button>
@@ -117,3 +116,4 @@ export async function renderLivePanel() {
     await renderLivePanel();
   });
 }
+
