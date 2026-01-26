@@ -735,3 +735,4 @@ function readChoicesFromForm(rootEl, lessonOrKey, mode) {
   nodes.sort((a, b) => Number(a.dataset.idx || 0) - Number(b.dataset.idx || 0));
   return nodes.map((n) => (n.value ?? "").toString());
 }
+
