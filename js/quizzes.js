@@ -6,17 +6,9 @@ import { toast, setActiveRoute } from "./ui.js";
 import { renderLessons } from "./lessons.js";
 
 import {
-  doc,
-  getDoc,
-  getDocs,
-  collection,
-  query,
-  orderBy,
+  doc, getDoc, getDocs, collection, query, orderBy
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-// -----------------------------
-// State
-// -----------------------------
 let quizState = {
   index: 0,
   attempts: {},
@@ -24,117 +16,32 @@ let quizState = {
   revealed: {},
   msg: {},
   items: [],
+  audioSpeed: 1
 };
 
-let _activeAudioObjectUrl = null;
-
-function cleanupAudioObjectUrl() {
-  if (_activeAudioObjectUrl) {
-    try { URL.revokeObjectURL(_activeAudioObjectUrl); } catch {}
-    _activeAudioObjectUrl = null;
-  }
-}
-
-// -----------------------------
-// Audio UI with speed controls
-// -----------------------------
-function buildAudioUI(containerEl, audioUrl) {
-  containerEl.innerHTML = "";
-  cleanupAudioObjectUrl();
-  if (!audioUrl) return;
-
-  const wrap = document.createElement("div");
-  wrap.style.marginTop = "6px";
-  wrap.style.userSelect = "none";
-
-  const btnLoad = document.createElement("button");
-  btnLoad.className = "btn btn-secondary";
-  btnLoad.textContent = "🔊 โหลดเสียง";
-
-  const status = document.createElement("div");
-  status.className = "muted small";
-  status.style.marginTop = "6px";
-  status.textContent = "กดโหลดเสียงก่อน";
-
-  const audio = document.createElement("audio");
-  audio.controls = true;
-  audio.preload = "none";
-  audio.style.width = "100%";
-  audio.setAttribute("controlsList", "nodownload");
-  audio.addEventListener("contextmenu", e => e.preventDefault());
-
-  // speed controls
-  const speedWrap = document.createElement("div");
-  speedWrap.style.marginTop = "8px";
-  speedWrap.style.display = "flex";
-  speedWrap.style.gap = "6px";
-
-  const speedLabel = document.createElement("span");
-  speedLabel.className = "small muted";
-  speedLabel.textContent = "สปีด: 1x";
-
-  function setSpeed(v) {
-    audio.playbackRate = v;
-    speedLabel.textContent = `สปีด: ${v}x`;
-  }
-
-  const btnSlow = document.createElement("button");
-  btnSlow.className = "btn btn-ghost";
-  btnSlow.textContent = "➖";
-  btnSlow.onclick = () => setSpeed(0.75);
-
-  const btnNormal = document.createElement("button");
-  btnNormal.className = "btn btn-ghost";
-  btnNormal.textContent = "1x";
-  btnNormal.onclick = () => setSpeed(1);
-
-  const btnFast = document.createElement("button");
-  btnFast.className = "btn btn-ghost";
-  btnFast.textContent = "➕";
-  btnFast.onclick = () => setSpeed(1.5);
-
-  speedWrap.append(btnSlow, btnNormal, btnFast, speedLabel);
-
-  btnLoad.onclick = async () => {
-    btnLoad.disabled = true;
-    btnLoad.textContent = "กำลังโหลด...";
-    status.textContent = "⏳ โหลดเสียง...";
-
-    try {
-      const res = await fetch(audioUrl);
-      const blob = await res.blob();
-      cleanupAudioObjectUrl();
-      const objUrl = URL.createObjectURL(blob);
-      _activeAudioObjectUrl = objUrl;
-
-      audio.src = objUrl;
-      audio.load();
-
-      status.textContent = "✅ พร้อมเล่น";
-      btnLoad.textContent = "โหลดแล้ว";
-    } catch {
-      status.textContent = "⚠ โหลดเสียงไม่สำเร็จ";
-      btnLoad.disabled = false;
-      btnLoad.textContent = "🔊 โหลดเสียง";
-    }
-  };
-
-  wrap.append(btnLoad, status, audio, speedWrap);
-  containerEl.appendChild(wrap);
-}
-
-// -----------------------------
-// Main render
-// -----------------------------
-export async function renderQuizzes() {
+export async function renderQuizzes(){
   const panel = qs("#quizPanel");
+
+  if(state.role !== "student"){
+    panel.innerHTML = `<div class="muted">กรุณาเข้าสู่ระบบผู้เรียนก่อน</div>`;
+    return;
+  }
+
   await refreshStudentFromDB();
 
-  const courseId = state.selectedCourseId;
+  const courseId = state.selectedCourseId || state.student.courseId;
   const lessonId = state.selectedLessonId;
 
-  if (!courseId || !lessonId) {
-    panel.innerHTML = "เลือกคอร์ส/บทเรียนก่อน";
+  if(!lessonId){
+    panel.innerHTML = `<div class="muted">กรุณาเลือกบทเรียนก่อน</div>`;
+    return;
+  }
+
+  const courseSnap = await getDoc(doc(db, "courses", courseId));
+  const course = courseSnap.exists() ? courseSnap.data() : null;
+
+  if(!course?.quizOpen || !state.student.liveJoined){
+    panel.innerHTML = `<div class="muted">ต้องเข้าเรียนสดก่อน จึงทำแบบฝึกหัดได้</div>`;
     return;
   }
 
@@ -145,67 +52,177 @@ export async function renderQuizzes() {
   const snap = await getDocs(qy);
 
   const items = [];
-  snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+  snap.forEach(d=> items.push({ id:d.id, ...d.data() }));
 
-  quizState = { index: 0, attempts: {}, solved: {}, revealed: {}, msg: {}, items };
+  if(!items.length){
+    panel.innerHTML = `<div class="muted">บทนี้ยังไม่มีแบบฝึกหัด</div>`;
+    return;
+  }
+
+  quizState = {
+    index: 0,
+    attempts: {},
+    solved: {},
+    revealed: {},
+    msg: {},
+    items,
+    audioSpeed: 1
+  };
+
   renderQuiz(panel);
 }
 
-function renderQuiz(panel) {
+function renderQuiz(panel){
   const q = quizState.items[quizState.index];
+  const tries = quizState.attempts[q.id] || 0;
+  const isSolved = !!quizState.solved[q.id];
+  const isRevealed = !!quizState.revealed[q.id];
+  const canGoNext = isSolved || isRevealed;
   const isLast = quizState.index === quizState.items.length - 1;
-  const canGoNext = quizState.solved[q.id] || quizState.revealed[q.id];
+  const type = q.type || "text";
+
+  let answerUI = "";
+
+  if(type === "choice"){
+    const choices = Array.isArray(q.choices) ? q.choices : [];
+    answerUI = choices.map((c, i)=>`
+      <label style="display:flex;gap:8px;margin:6px 0;cursor:pointer">
+        <input type="radio" name="quizChoice" value="${i}" ${isSolved ? "disabled" : ""}>
+        <span>${escapeHtml(c)}</span>
+      </label>
+    `).join("");
+  } else {
+    answerUI = `
+      <input id="quizAnswer" class="input"
+        placeholder="พิมพ์คำตอบของคุณ"
+        ${isSolved ? "disabled" : ""} />
+    `;
+  }
 
   panel.innerHTML = `
-    <div>ข้อ ${quizState.index + 1}/${quizState.items.length}</div>
-    <div style="font-size:18px">${escapeHtml(q.question || "")}</div>
-    <div id="audioBox"></div>
+    <div class="small muted">ข้อ ${quizState.index+1}/${quizState.items.length}</div>
 
-    <input id="quizAnswer" class="input" placeholder="คำตอบ">
+    <div style="font-size:18px;margin-top:6px">${escapeHtml(q.question || "")}</div>
 
-    <button id="btnCheck" class="btn btn-primary">ตรวจคำตอบ</button>
-    <button id="btnShow" class="btn btn-secondary">ดูเฉลย</button>
+    ${q.audioUrl ? `
+      <div style="margin-top:12px">
+        <audio id="quizAudio" preload="metadata" src="${escapeHtml(q.audioUrl)}"></audio>
 
-    <div id="quizMsg" class="small"></div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <button id="btnPlayAudio" class="btn btn-secondary">▶ เล่นเสียง</button>
+          <button id="btnSlow" class="btn btn-ghost">🐢 ช้า</button>
+          <button id="btnFast" class="btn btn-ghost">⚡ เร็ว</button>
+          <span class="small muted">สปีด: ${quizState.audioSpeed.toFixed(1)}x</span>
+        </div>
+      </div>
+    ` : ""}
 
-    <div style="margin-top:10px">
-      ${isLast
-        ? `<button id="btnFinish" class="btn btn-primary" ${canGoNext ? "" : "disabled"}>เสร็จสิ้น</button>`
-        : `<button id="btnNext" class="btn btn-ghost" ${canGoNext ? "" : "disabled"}>ถัดไป</button>`
-      }
+    ${q.imageUrl ? `
+      <img src="${escapeHtml(q.imageUrl)}"
+        style="max-width:100%;margin:10px 0;border-radius:12px;border:1px solid rgba(255,255,255,.12)">
+    ` : ""}
+
+    <div style="margin-top:10px">${answerUI}</div>
+
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button id="btnCheck" class="btn btn-primary" ${isSolved ? "disabled" : ""}>
+        ตรวจคำตอบ
+      </button>
+
+      ${(!isSolved && !isRevealed && tries >= 2)
+        ? `<button id="btnShowAnswer" class="btn btn-secondary">ดูเฉลยคำตอบ</button>`
+        : ""}
+    </div>
+
+    <div id="quizMsg" class="small muted" style="margin-top:8px"></div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:12px;gap:8px">
+      <button id="btnPrev" class="btn btn-ghost" ${quizState.index === 0 ? "disabled" : ""}>
+        ⏮️ กลับ
+      </button>
+
+      <div style="display:flex;gap:8px">
+        ${isLast && canGoNext ? `<button id="btnFinish" class="btn btn-primary">เสร็จสิ้น ✅</button>` : ``}
+        <button id="btnNext" class="btn btn-ghost" ${(!isLast && canGoNext) ? "" : "disabled"}>
+          ถัดไป ⏭️
+        </button>
+      </div>
     </div>
   `;
 
-  buildAudioUI(qs("#audioBox"), q.audioUrl);
+  // ---- Audio controls ----
+  const audio = qs("#quizAudio");
 
-  qs("#btnCheck").onclick = () => {
-    const ans = qs("#quizAnswer").value.trim();
-    if (ans === q.answerText) {
-      quizState.solved[q.id] = true;
-      qs("#quizMsg").innerHTML = "✅ ถูกต้อง";
-    } else {
-      qs("#quizMsg").innerHTML = "❌ ผิด";
+  qs("#btnPlayAudio")?.addEventListener("click", async ()=>{
+    try{
+      audio.playbackRate = quizState.audioSpeed;
+      await audio.play(); // user gesture fix
+    }catch(e){
+      toast("ไม่สามารถเล่นเสียงได้");
     }
-    renderQuiz(panel);
-  };
+  });
 
-  qs("#btnShow").onclick = () => {
-    quizState.revealed[q.id] = true;
-    qs("#quizMsg").innerHTML =
-      `เฉลย: ${escapeHtml(q.answerText)}<br>` +
-      (q.explain ? `คำอธิบาย: ${escapeHtml(q.explain)}` : "");
-  };
-
-  qs("#btnNext")?.addEventListener("click", () => {
-    quizState.index++;
+  qs("#btnSlow")?.addEventListener("click", ()=>{
+    quizState.audioSpeed = Math.max(0.5, quizState.audioSpeed - 0.25);
     renderQuiz(panel);
   });
 
-  qs("#btnFinish")?.addEventListener("click", async () => {
-    toast("เสร็จสิ้นแบบฝึกหัด");
+  qs("#btnFast")?.addEventListener("click", ()=>{
+    quizState.audioSpeed = Math.min(2, quizState.audioSpeed + 0.25);
+    renderQuiz(panel);
+  });
+
+  // ---- Message + Explanation ----
+  const msgEl = qs("#quizMsg");
+
+  if (quizState.revealed[q.id]) {
+    const answer =
+      (q.answerText || q.answer || "(ไม่มีเฉลย)");
+
+    const explain =
+      (q.explain || "");
+
+    msgEl.innerHTML = `
+      📘 <b>เฉลย:</b> ${escapeHtml(answer)}
+      ${explain ? `<div style="margin-top:6px">💬 ${escapeHtml(explain)}</div>` : ""}
+    `;
+  }
+  else if (quizState.msg[q.id]) {
+    msgEl.innerHTML = quizState.msg[q.id];
+  }
+
+  // events
+  qs("#btnCheck")?.addEventListener("click", ()=>checkAnswer(q, panel, type));
+  qs("#btnPrev")?.addEventListener("click", ()=>{ quizState.index--; renderQuiz(panel); });
+  qs("#btnNext")?.addEventListener("click", ()=>{ quizState.index++; renderQuiz(panel); });
+  qs("#btnShowAnswer")?.addEventListener("click", ()=>{
+    quizState.revealed[q.id] = true;
+    renderQuiz(panel);
+  });
+
+  qs("#btnFinish")?.addEventListener("click", async ()=>{
+    toast("✅ ทำครบแล้ว");
     setActiveRoute("student-lessons");
     await renderLessons();
   });
 }
 
-window.addEventListener("beforeunload", cleanupAudioObjectUrl);
+function checkAnswer(q, panel, type){
+  if(type === "text"){
+    const input = qs("#quizAnswer")?.value.trim();
+    if(!input){ toast("กรุณากรอกคำตอบ"); return; }
+
+    const ans = (q.answerText || q.answer || "").trim();
+
+    quizState.attempts[q.id] = (quizState.attempts[q.id] || 0) + 1;
+
+    if(input === ans){
+      quizState.solved[q.id] = true;
+      quizState.msg[q.id] = "✅ ตอบถูก";
+    }else{
+      quizState.msg[q.id] = "❌ ตอบผิด";
+    }
+  }
+
+  renderQuiz(panel);
+}
