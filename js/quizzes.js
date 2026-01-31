@@ -169,7 +169,6 @@ function renderQuiz(panel){
         </div>
 
         <div class="small muted" style="margin-top:6px">
-          *ถ้าใช้ลิงก์ GitHub ระบบจะแปลงเป็น raw ให้ และผู้เรียนต้องกดปุ่มเพื่อเริ่มเล่นเสียง
         </div>
       </div>
     ` : ""}
